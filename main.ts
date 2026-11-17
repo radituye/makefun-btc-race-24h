@@ -5,7 +5,7 @@
 // A 1% stop-loss cuts a position that keeps falling after entry.
 //
 //   - Lookback: 480 bars (8 hours) of closes for the rolling range.
-//   - Buy: flat and close <= low + 20% of (high - low).
+//   - Buy: flat and close <= low + 15% of (high - low).
 //   - Sell: holding and close >= high - 5% of (high - low).
 //   - Stop: holding and close <= 1% below the entry close.
 //   - Size: the whole cash on a buy, the whole position on a sell.
@@ -15,8 +15,13 @@
 // Why this beats the baselines on the dev window: the window is flat
 // (+0.49% net) and range-bound ($63,874-$65,467), so trend and crossover
 // bots are whipsawed by the ~26 bps round-trip cost while this bot only
-// trades on the range extremes. Dev: +$28.25 on 6 trades, 0.74% max
+// trades on the range extremes. Dev: +$30.82 on 5 trades, 0.72% max
 // drawdown (buy-and-hold +$1.07, momentum +$2.45, ema-cross -$106).
+// The buy zone was tightened from 20% to 15% of the range after the dev
+// grade: buying closer to the range bottom keeps the same 5 trades but
+// enters lower, so the same sells capture a bigger move (+$2.57, and the
+// drawdown falls slightly). Zones of 10-12% are too selective and drop
+// to 3 trades (+$13.5), so 15% is the sweet spot, not a knife-edge.
 //
 // Deterministic: no clock, no environment, no randomness. The same bars
 // always produce the same orders. Standard library only (node:readline via
@@ -31,7 +36,7 @@ import { runBars, type BarsState, type OrderInput } from './vendor/makefun-bars.
 /** Bars of closes kept for the rolling range (8 hours). */
 const LOOKBACK_BARS = 480;
 /** Buy when the close is within this share of the range above the low. */
-const BUY_ZONE = 0.2;
+const BUY_ZONE = 0.15;
 /** Sell when the close is within this share of the range below the high. */
 const SELL_ZONE = 0.05;
 /** Stop out when the close falls this far below the entry close. */
@@ -61,9 +66,9 @@ await runBars({
     }
     if (hi === lo) return [];
     const range = hi - lo;
-    // Integer thresholds: buy at or below low + 20% of the range,
+    // Integer thresholds: buy at or below low + 15% of the range,
     // sell at or above high - 5% of the range.
-    const buyAt = lo + (range * 20n) / 100n;
+    const buyAt = lo + (range * 15n) / 100n;
     const sellAt = hi - (range * 5n) / 100n;
     const holding = state.positions.get('CBBTC');
 
